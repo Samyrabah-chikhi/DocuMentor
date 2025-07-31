@@ -27,13 +27,23 @@ from sklearn.cluster import KMeans
 from transformers import AutoTokenizer
 
 # CONFIGURATION
-MODEL_NAME = "gemma3"
+MODEL_NAME = "gemma3:1b"
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
 CONTEXT_PATH = "./context"
-CLUSTER_NUM = 12
+CLUSTER_NUM = 20
 
 tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL)
-LLM = OllamaLLM(model=MODEL_NAME)
+LLM = OllamaLLM(
+    model=MODEL_NAME,
+    num_thread=4,
+    temperature=0.3,  # Lower temperature = more focused and factual
+    top_k=30,  # Moderate diversity, avoids nonsense
+    top_p=0.9,  # Balanced sampling
+    repeat_penalty=1.5,  # Reduces redundant phrases
+    repeat_last_n=256,  # Looks farther back to prevent repetition
+    mirostat=0,  # Disabled for deterministic behavior
+    num_ctx=16384,
+)
 
 
 # HELPER FUNCTIONS
@@ -54,12 +64,19 @@ def load_embeddings():
 
 def create_map_chain():
     map_prompt = """
-You will be given a single passage of a book. This section will be enclosed in triple backticks (```)
-Your goal is to give a summary of this section so that a reader will have a full understanding of what happened.
-Your response should be two paragraphs long and fully encompass what was said in the passage.
+You will be given a passage from a book, enclosed in triple backticks (```).
+Your task is to write a clear, cohesive summary of the passage in a single paragraph.
+
+Your summary should:
+- Accurately capture the main events and actions.
+- Include the motivations, emotions, or key ideas expressed.
+- Preserve important names, settings, and turning points.
+- Avoid vague generalizations — instead, clarify what *actually* happens.
+
+Write in a neutral, narrative tone. Think of it as explaining this scene to someone who hasn’t read it, but needs to fully understand it.
 
 ```{text}```
-FULL SUMMARY:
+SUMMARY:
 """
     map_prompt_template = PromptTemplate(template=map_prompt, input_variables=["text"])
     return load_summarize_chain(llm=LLM, chain_type="stuff", prompt=map_prompt_template)
@@ -67,13 +84,39 @@ FULL SUMMARY:
 
 def create_reduce_chain():
     combine_prompt = """
-You will be given a series of summaries from a book. The summaries will be enclosed in triple backticks (```)
-Your goal is to give a verbose summary of what happened in the story.
-The reader should be able to grasp what happened in the book.
+You will be given a collection of summaries from a book, enclosed in triple backticks (```).
 
+Your task has two parts:
+
+---
+
+**Part 1: Structured Outline**
+
+- Divide the content into logical sections based on major events, themes, or character developments ( it could be from 3 to 20 sections).
+- For each section:
+    - Write a **short, descriptive title** that reflects the main idea or turning point.
+    - Below the title, include **2–4 bullet points** (using `-`) that summarize the key developments.
+    - The bullet points should be:
+        - Chronologically ordered (when applicable)
+        - Clear and concise (no copied text from summaries)
+        - Focused on important actions, motivations, decisions, or themes
+
+---
+
+**Part 2: Final Summary**
+
+- After the bullet points, write a **verbose final summary** of the entire story.
+- This should:
+    - Read like a full retelling of the book in paragraph form
+    - Emphasize cause and effect, character motivation, and narrative arc
+    - Help someone understand the full story without reading the book
+
+Here are the summaries:
 ```{text}```
-VERBOSE SUMMARY:
+
+STRUCTURED OUTLINE:
 """
+
     combine_prompt_template = PromptTemplate(
         template=combine_prompt, input_variables=["text"]
     )
@@ -81,7 +124,7 @@ VERBOSE SUMMARY:
         llm=LLM,
         chain_type="stuff",
         prompt=combine_prompt_template,
-        verbose=True
+        verbose=True,
         # verbose=True # Set this to true if you want to see the inner workings
     )
 
@@ -159,18 +202,20 @@ if __name__ == "__main__":
 
     for i, doc in enumerate(selected_docs):
         chunk_summary = map_chain.run([doc])
-        summary_list.append(chunk_summary)  
-        print(f"Chunk summary {i}")   
-        print(chunk_summary)    
-        with open(f"Chunk{i}","w") as file:
+        summary_list.append(chunk_summary)
+        print(f"Chunk summary {i}")
+        print(chunk_summary)
+        with open(f"summary{i}.txt", "w") as file:
             file.write(str(chunk_summary))
 
     summaries = "\n".join(summary_list)
     summaries = Document(page_content=summaries)
 
-    reduce_chain = create_reduce_chain()    
+    reduce_chain = create_reduce_chain()
     output = reduce_chain.run([summaries])
     print("Output: ")
     print(output)
-    with open("Summary","w") as file:
+    with open("Summary_main.txt", "w") as file:
         file.write(str(output))
+        
+
