@@ -1,14 +1,14 @@
 import React from "react";
-import { Upload } from "lucide-react";
+import { Upload} from "lucide-react";
 
 export default function UploadCards({
   inputRef,
   handleFileChange,
-  handleFileUpload,
+  handleClickInput,
 }: {
   inputRef:React.RefObject<null>;
   handleFileChange:(e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleFileUpload:() => void;
+  handleClickInput:() => void;
 }) {
   return (
     <div>
@@ -26,7 +26,7 @@ export default function UploadCards({
         ></input>
         <p
           className="text-blue-600 hover:text-blue-800 cursor-pointer font-medium"
-          onClick={handleFileUpload}
+          onClick={handleClickInput}
         >
           Browse files
         </p>

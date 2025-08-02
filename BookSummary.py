@@ -1,7 +1,10 @@
+# API 
+from fastapi import FastAPI, UploadFile, File
 # Loaders
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.schema import Document
-
+from langchain_community.document_loaders import PyMuPDFLoader
+import tempfile
 # LLM
 from langchain_ollama import OllamaLLM
 
@@ -27,11 +30,17 @@ from sklearn.cluster import KMeans
 from transformers import AutoTokenizer
 
 # CONFIGURATION
-MODEL_NAME = "gemma3:1b"
+MODEL_NAME = "llama3.2:1b"
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
 CONTEXT_PATH = "./context"
 CLUSTER_NUM = 20
 
+# ============ FASTAPI INIT ============
+app = FastAPI()
+vector_store = None
+embeddings = None
+ 
+# ============ LLM INIT ============
 tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL)
 LLM = OllamaLLM(
     model=MODEL_NAME,
@@ -92,30 +101,37 @@ Your task has two parts:
 
 **Part 1: Structured Outline**
 
-- Divide the content into logical sections based on major events, themes, or character developments ( it could be from 3 to 20 sections).
+- Divide the content into logical sections based on major events, themes, or character developments (3 to 20 sections).
 - For each section:
-    - Write a **short, descriptive title** that reflects the main idea or turning point.
-    - Below the title, include **2–4 bullet points** (using `-`) that summarize the key developments.
-    - The bullet points should be:
-        - Chronologically ordered (when applicable)
-        - Clear and concise (no copied text from summaries)
-        - Focused on important actions, motivations, decisions, or themes
+    - Write a **short, descriptive title**.
+    - Below the title, include **2–4 bullet points** using `-`, covering the main developments.
 
 ---
 
 **Part 2: Final Summary**
 
-- After the bullet points, write a **verbose final summary** of the entire story.
-- This should:
-    - Read like a full retelling of the book in paragraph form
-    - Emphasize cause and effect, character motivation, and narrative arc
-    - Help someone understand the full story without reading the book
+- After the bullet points, write a **verbose final summary** (a few paragraphs).
+- It should:
+    - Retell the full story in paragraph form
+    - Emphasize cause and effect, motivations, and themes
+    - Help the reader understand the full story
 
 Here are the summaries:
 ```{text}```
 
-STRUCTURED OUTLINE:
+---
+
+**STRUCTURED OUTLINE:**
+
+[Start Part 1 here...]
+
+---
+
+**FINAL SUMMARY:**
+
+[Start Part 2 here...]
 """
+
 
     combine_prompt_template = PromptTemplate(
         template=combine_prompt, input_variables=["text"]
@@ -129,18 +145,33 @@ STRUCTURED OUTLINE:
     )
 
 
-def load_documents(path=CONTEXT_PATH):
+def load_documents_from_path(path=CONTEXT_PATH):
     loader = DirectoryLoader(path, glob="**/*.pdf", show_progress=True)
     return loader.load()
 
 
-def get_text():
+def get_text_from_path():
     text = ""
-    pages = load_documents()
+    pages = load_documents_from_path()
     for page in pages:
         text = text + page.page_content
     return text.replace("\t", " ")
 
+def get_text_from_parameters(file: UploadFile):
+    text = ""
+    # Save the uploaded file to a temporary location
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(file.file.read())
+        tmp_path = tmp.name
+
+    # Load with PyMuPDFLoader
+    loader = PyMuPDFLoader(tmp_path)
+    pages = loader.load()
+
+    for page in pages:
+        text += page.page_content
+
+    return text.replace("\t", " ")
 
 def create_documents(docs):
     text_splitter = RecursiveCharacterTextSplitter(
@@ -158,17 +189,24 @@ def count_tokens_for_index(splits, index):
     content = splits[index].page_content
     return len(tokenizer.encode(content, truncation=False))
 
+# ============ STARTUP EVENT ============
 
-if __name__ == "__main__":
-
+@app.on_event("startup")
+def startup():
+    global vector_store, embeddings
+    
     print("Loading Embedding Model...")
     embeddings = load_embeddings()
 
     print("Building Vector Store...")
     vector_store = build_vector_store(embeddings)
+    
+# ============ MAIN ROUTE ============
 
+@app.post("/") 
+async def ask_question(file: UploadFile = File(...)):
     print("Loading Documents Into A Text...")
-    text = get_text()
+    text = get_text_from_parameters(file)
 
     print("Creating Document Splits...")
     splits = create_documents(text)
@@ -205,7 +243,7 @@ if __name__ == "__main__":
         summary_list.append(chunk_summary)
         print(f"Chunk summary {i}")
         print(chunk_summary)
-        with open(f"summary{i}.txt", "w") as file:
+        with open(f"summary{i}_{MODEL_NAME}.txt", "w") as file:
             file.write(str(chunk_summary))
 
     summaries = "\n".join(summary_list)
@@ -215,7 +253,13 @@ if __name__ == "__main__":
     output = reduce_chain.run([summaries])
     print("Output: ")
     print(output)
-    with open("Summary_main.txt", "w") as file:
-        file.write(str(output))
-        
+    with open("Summary_main_{MODEL_NAME}.txt", "w") as file:
+        file.write(str(output))   
+         
+    return {"Summary": str(output)}
+    
+# ============ RUN ============
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("BookSummary:app", host="127.0.0.1", port=8000, reload=True)
