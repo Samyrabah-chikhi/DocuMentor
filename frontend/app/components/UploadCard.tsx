@@ -98,7 +98,7 @@ export default function UploadCard() {
         }`}
       >
         <button className="absolute top-1 right-1 rounded-lg cursor-pointer
-         px-4 py-1 bg-red-500 text-white"
+         px-4 py-0.5 bg-red-500 text-white"
          onClick={()=>{setFile(null)}}>X</button>
         {file ? (
           <div className="flex flex-col items-center justify-center">
@@ -161,9 +161,12 @@ export default function UploadCard() {
         <div>
           {answer.split("\n").map((line, index) => {
             if (line.startsWith("**") && line.endsWith("**")) {
-              return <h2 className="text-lg text-black font-medium" key={index}>{line.replace(/\*\*/g, "")}</h2>;
+              return <header>
+                <br />
+                <h2 className="text-lg text-black font-medium mb-2" key={index}>{line.replace(/\*\*/g, "")}</h2>
+              </header>
             }
-            return <p key={index}>{line}</p>;
+            return <p className="indent-8" key={index}>{line}</p>;
           })}
         </div>
       )}
