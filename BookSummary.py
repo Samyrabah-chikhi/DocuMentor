@@ -1,10 +1,12 @@
-# API 
+# API
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 # Loaders
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.schema import Document
 from langchain_community.document_loaders import PyMuPDFLoader
 import tempfile
+
 # LLM
 from langchain_ollama import OllamaLLM
 
@@ -30,16 +32,25 @@ from sklearn.cluster import KMeans
 from transformers import AutoTokenizer
 
 # CONFIGURATION
-MODEL_NAME = "llama3.2:1b"
+MODEL_NAME = "gemma3:1b"
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
 CONTEXT_PATH = "./context"
 CLUSTER_NUM = 20
 
 # ============ FASTAPI INIT ============
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 vector_store = None
 embeddings = None
- 
+
 # ============ LLM INIT ============
 tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL)
 LLM = OllamaLLM(
@@ -120,6 +131,7 @@ Here are the summaries:
 ```{text}```
 
 ---
+return the content in the following format without including any introductory or closing phrases
 
 **STRUCTURED OUTLINE:**
 
@@ -131,7 +143,6 @@ Here are the summaries:
 
 [Start Part 2 here...]
 """
-
 
     combine_prompt_template = PromptTemplate(
         template=combine_prompt, input_variables=["text"]
@@ -157,6 +168,7 @@ def get_text_from_path():
         text = text + page.page_content
     return text.replace("\t", " ")
 
+
 def get_text_from_parameters(file: UploadFile):
     text = ""
     # Save the uploaded file to a temporary location
@@ -173,6 +185,7 @@ def get_text_from_parameters(file: UploadFile):
 
     return text.replace("\t", " ")
 
+
 def create_documents(docs):
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", "\t"], chunk_size=10000, chunk_overlap=3000
@@ -180,8 +193,8 @@ def create_documents(docs):
     return text_splitter.create_documents([docs])
 
 
-def cluster_init(vectors):
-    return KMeans(n_clusters=CLUSTER_NUM, random_state=42).fit(vectors)
+def cluster_init(vectors, cluster_num=CLUSTER_NUM):
+    return KMeans(n_clusters=cluster_num, random_state=42).fit(vectors)
 
 
 # Function to count tokens of a split by its index
@@ -189,21 +202,25 @@ def count_tokens_for_index(splits, index):
     content = splits[index].page_content
     return len(tokenizer.encode(content, truncation=False))
 
+
 # ============ STARTUP EVENT ============
+
 
 @app.on_event("startup")
 def startup():
     global vector_store, embeddings
-    
+
     print("Loading Embedding Model...")
     embeddings = load_embeddings()
 
     print("Building Vector Store...")
     vector_store = build_vector_store(embeddings)
-    
+
+
 # ============ MAIN ROUTE ============
 
-@app.post("/") 
+
+@app.post("/")
 async def ask_question(file: UploadFile = File(...)):
     print("Loading Documents Into A Text...")
     text = get_text_from_parameters(file)
@@ -218,11 +235,26 @@ async def ask_question(file: UploadFile = File(...)):
 
     print("Initializing Cluster Algorithm...")
     vectors = [embeddings.embed_query(doc.page_content) for doc in splits]
-    kmeans = cluster_init(np.array(vectors))
+
+    cluster_num = CLUSTER_NUM
+    if len(splits) < 3:
+        cluster_num = 1
+    elif len(splits) < 10:
+        cluster_num = 3
+    elif len(splits) < 25:
+        cluster_num = 4
+    elif len(splits) < 50:
+        cluster_num = 6
+    elif len(splits) < 100:
+        cluster_num = 12
+    else:
+        cluster_num = min(20, len(splits) // 5)
+
+    kmeans = cluster_init(np.array(vectors), cluster_num)
 
     closest_indices = []
 
-    for i in range(CLUSTER_NUM):
+    for i in range(cluster_num):
         distances = np.linalg.norm(vectors - kmeans.cluster_centers_[i], axis=1)
         closest_index = np.argmin(distances)
         closest_indices.append(closest_index)
@@ -253,13 +285,15 @@ async def ask_question(file: UploadFile = File(...)):
     output = reduce_chain.run([summaries])
     print("Output: ")
     print(output)
-    with open("Summary_main_{MODEL_NAME}.txt", "w") as file:
-        file.write(str(output))   
-         
+    with open(f"Summary_main_{MODEL_NAME}.txt", "w") as file:
+        file.write(str(output))
+
     return {"Summary": str(output)}
-    
+
+
 # ============ RUN ============
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("BookSummary:app", host="127.0.0.1", port=8000, reload=True)
