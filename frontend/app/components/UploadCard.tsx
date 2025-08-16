@@ -1,5 +1,11 @@
 "use client";
-import React, { ChangeEvent, useRef, useState } from "react";
+import React, {
+  ChangeEvent,
+  Dispatch,
+  SetStateAction,
+  useRef,
+  useState,
+} from "react";
 import { FileText, FileCheck, Send } from "lucide-react";
 import UploadCards from "./UploadCards";
 
@@ -33,11 +39,17 @@ const RadioOption = ({
   </label>
 );
 
-export default function UploadCard() {
+export default function UploadCard({
+  setAnswer,
+  answer,
+}: {
+  setAnswer: Dispatch<SetStateAction<String>>;
+  answer: String;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [selectedOutput, setSelectedOutput] = useState<Output>("summary");
   const [question, setQuestion] = useState<string>("");
-  const [answer, setAnswer] = useState<String>("");
+
   const [loading, setLoading] = useState<Boolean>(false);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -82,7 +94,12 @@ export default function UploadCard() {
     loading || (selectedOutput === "answer" && question.trim() === "");
 
   return (
-    <div className="bg-white shadow-lg rounded-2xl w-[50vw] border-2 border-gray-200 flex flex-col p-6 gap-4">
+    <div
+      className={`bg-white shadow-lg rounded-2xl w-[45vw]
+      ${file ? "h-[100vh]" : "h-[60vh]"}
+      ${file && selectedOutput === "answer" ? "h-[125vh]" : ""}
+    border-2 flex flex-col p-6 gap-4`}
+    >
       <section className="flex gap-2 items-center">
         <FileText className="h-5 w-5" />
         <h2 className="text-lg text-black font-semibold">Upload PDF</h2>
@@ -91,15 +108,21 @@ export default function UploadCard() {
       <p className="text-sm">Drag and drop your PDF file or click to browse</p>
 
       <main
-        className={`mt-4 border-2 border-dashed rounded-xl w-full h-full p-6 relative ${
+        className={`mt-4 border-2 border-dashed rounded-xl w-full p-6 relative ${
           file
-            ? "border-green-500 bg-green-50"
-            : "border-gray-300 hover:border-gray-500"
+            ? "border-green-500 bg-green-50 h-auto"
+            : "border-gray-300 hover:border-gray-500 h-40"
         }`}
       >
-        <button className="absolute top-1 right-1 rounded-lg cursor-pointer
+        <button
+          className="absolute top-1 right-1 rounded-lg cursor-pointer
          px-4 py-0.5 bg-red-500 text-white"
-         onClick={()=>{setFile(null)}}>X</button>
+          onClick={() => {
+            setFile(null);
+          }}
+        >
+          X
+        </button>
         {file ? (
           <div className="flex flex-col items-center justify-center">
             <FileCheck className="h-12 w-12 text-green-500" />
@@ -157,19 +180,7 @@ export default function UploadCard() {
           </button>
         </section>
       )}
-      {answer != "" && (
-        <div>
-          {answer.split("\n").map((line, index) => {
-            if (line.startsWith("**") && line.endsWith("**")) {
-              return <header>
-                <br />
-                <h2 className="text-lg text-black font-medium mb-2" key={index}>{line.replace(/\*\*/g, "")}</h2>
-              </header>
-            }
-            return <p className="indent-8" key={index}>{line}</p>;
-          })}
-        </div>
-      )}
+      
     </div>
   );
 }

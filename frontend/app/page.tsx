@@ -1,13 +1,25 @@
+"use client";
+import { useState } from "react";
 import UploadCard from "./components/UploadCard";
+import DisplayCard from "./components/DisplayCard";
+
+const data = {
+    "Summary": "**STRUCTURED OUTLINE:**\n\n1.  John Galt’s Early Career and Literary Society\n2.  Establishment of the Literary Enterprise\n3.  Partnership with McLachlan & Galt\n4.  Travel and Influential Figures\n5.  The “Majolo” and Gothic Narrative\n6.  Illness and Return to Edinburgh\n7.  Continued Engagement with Publishing\n8.  The Legacy of *Glenfell*\n9.  Galt’s Literary Interests and Artistic Style\n10. Alexander Blackwood’s Attempt to Revive the Novel\n11. The Fate of *The Omen* and its Reception\n12. The Persistent Efforts of Galt\n\n**FINAL SUMMARY:**\n\nJohn Galt, a prominent 19th-century literary figure, meticulously chronicles his career in Scotland, establishing a literary society and publishing his memoir of Greenock’s poet, John Wilson. His career is marked by a series of ventures, including establishing a literary enterprise with the McLachlan & Galt business, and publishing works like “The Battle of Largs” and “The Life and Studies of Benjamin West.” Galt’s involvement with the “Majolo” collection, a literary work, highlights the commercial pressures of the era.  His career is punctuated by travel to the Mediterranean and Near East, and encounters with influential figures like Byron.  He becomes a key figure in the publication of the “Majolo,” and later, “The Omen” and “The Last of the Lairds,” reflecting a growing interest in Gothic narratives.  The chronology culminates with a period of illness and a return to Edinburgh, where he continues to engage with literary publishing and the burgeoning literary scene.  Ultimately, Galt’s work represents a detailed and insightful examination of the literary landscape of his time, reflecting a period of significant change and innovation within the publishing industry.  *Glenfell*, a meticulously crafted narrative exploring the social dynamics of 19th-century Scotland, particularly focusing on the marriage of Macdonalds and Campbells amidst economic and political shifts, serves as a key example of his evolving literary interests. The novel’s success, though initially lukewarm, is ultimately recognized as a significant contribution to the development of Scottish literature, establishing a foundational narrative for subsequent works exploring the social and economic realities of the Scottish Highlands.  Galt’s fiction, particularly in works like “The Omen,” reflects a complex interplay of personal anxieties, nostalgic reflections, and a continued engagement with themes of memory, perception, and the potential for the supernatural. The novel’s narrative structure, marked by a shifting perspective and a focus on a young nobleman’s experiences, mirrors Galt’s own evolving artistic sensibilities and a subtle exploration of the psychological processes underlying his creative output. The inclusion of references to Byron’s poetry, the Canadian Company’s business ventures, and the historical context of the early 19th century underscores Galt’s broader interest in exploring the intersection of imagination, history, and the human condition.  The novel’s stylistic choices, including the use of a first-person narrator and a gothic atmosphere, further contribute to its sense of disorientation and the blurring of boundaries between reality and fantasy, aligning with Galt’s overall approach to crafting narratives that challenge conventional storytelling.  Alexander Blackwood’s unsuccessful attempt to revive the novel after its initial publication in 1826 underscores the challenges faced by Galt and the enduring appeal of his meticulously crafted historical fiction.  The initial response from the literary community was mixed, with some reviewers finding the novel’s content unsettling and others praising its evocative imagery. The Blackwoods and Galt strategized about the timing and advertising of the publication, considering whether concealing Galt’s authorship entirely or letting out the secret would have a more positive impact. The first published review, which appeared in the Literary Gazette, highlighted the novel’s episodic nature and the reviewer’s skepticism about the author’s intentions. Despite this initial negative reception, Galt remained intensely engaged with the story, meticulously revising the manuscript and attempting to salvage it from the public eye. The story’s cryptic allusions to the identity of the author, particularly the mention of “the number 666,” became a significant point of contention. The publication of the novel was ultimately unsuccessful, and the story remained lost for nearly 40 years. However, Galt’s persistent efforts and the subsequent review by Walter Scott, which praised the story’s language and evocative imagery, provided a glimmer of hope for its eventual rediscovery.\n"
+}
 
 export default function Home() {
+  const [answer, setAnswer] = useState<String>(data.Summary);
   return (
-    <div className="flex flex-col justify-between items-center gap-2 p-10 ">
+    <section className="flex flex-col justify-between items-center 
+    gap-2 p-10 bg-fuchsia-100">
       <h1 className="text-3xl text-black font-semibold">PDF Assistant</h1>
-      <p className="text-md mb-4">
+      <p className="text-md mb-8">
         Upload a PDF to get summaries or ask questions about its content
       </p>
-      <UploadCard></UploadCard>
-    </div>
+      <main className="flex justify-between w-full">
+          <UploadCard answer={answer} setAnswer={setAnswer}></UploadCard>
+          <DisplayCard answer={answer}></DisplayCard>
+      </main>
+    </section>
   );
 }
