@@ -116,7 +116,7 @@ export default function UploadCard({
       >
         <button
           className="absolute top-1 right-1 rounded-lg cursor-pointer
-         px-4 py-0.5 bg-red-500 text-white"
+         px-4 py-0.5 bg-rose-600 text-white"
           onClick={() => {
             setFile(null);
           }}
