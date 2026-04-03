@@ -89,6 +89,14 @@ npm run dev
 - Upload a PDF
 - View generated summary and extracted data
 
+## Demo
+
+### Home Page
+![Home Page](assets/home.png)
+
+### Summary Request
+![Summary Request](assets/Home_summary.png)
+
 ## 📌 Notes
 - Uses local models for processing
 - No external API calls
